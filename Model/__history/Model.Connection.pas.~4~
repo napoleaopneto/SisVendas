@@ -5,7 +5,6 @@ interface
 uses
   System.SysUtils,
   System.IOUtils,
-  System.Classes,
   FireDAC.Comp.Client,
   FireDAC.Stan.Def,
   FireDAC.Stan.Intf,
@@ -33,7 +32,7 @@ type
     class var FConn: TFDConnection;
     class procedure CriarSchema;
     class procedure Instalar;
-    class procedure ExtrairDLL(const Destino: string);
+    class function  PastaFontesDLL: string;
   public
     class function Get: TFDConnection;
     class procedure Encerrar;
@@ -41,35 +40,54 @@ type
 
 implementation
 
-uses
-  Winapi.Windows;
-
-{$R sqlite3res.res}
-
-class procedure TConnection.ExtrairDLL(const Destino: string);
+class function TConnection.PastaFontesDLL: string;
 var
-  RS: TResourceStream;
+  CandidatoLocal:    string;
+  CandidatoRelativo: string;
 begin
-  RS := TResourceStream.Create(HInstance, 'SQLITE3DLL', RT_RCDATA);
-  try
-    RS.SaveToFile(Destino);
-  finally
-    RS.Free;
+  // 1ª opção: sqlite3.dll ao lado do próprio executável
+  CandidatoLocal := TPath.Combine(TPath.GetDirectoryName(ParamStr(0)), NOME_DLL);
+  if TFile.Exists(CandidatoLocal) then
+  begin
+    Result := CandidatoLocal;
+    Exit;
   end;
+
+  // 2ª opção: pasta DLL\ dois níveis acima do exe (Win32\Debug\ -> raiz do projeto)
+  CandidatoRelativo := TPath.GetFullPath(
+    TPath.Combine(TPath.GetDirectoryName(ParamStr(0)), '..\..\DLL\' + NOME_DLL));
+  if TFile.Exists(CandidatoRelativo) then
+  begin
+    Result := CandidatoRelativo;
+    Exit;
+  end;
+
+  // Nenhuma encontrada — retorna o local esperado para a mensagem de erro ficar clara
+  Result := CandidatoLocal;
 end;
 
 class procedure TConnection.Instalar;
 var
+  DllOrigem:  string;
   DllDestino: string;
 begin
   // 1. Garante que C:\SisVendas existe
   if not TDirectory.Exists(DIR_INSTALACAO) then
     TDirectory.CreateDirectory(DIR_INSTALACAO);
 
-  // 2. Extrai sqlite3.dll do recurso embutido no exe (só na primeira vez)
+  // 2. Copia sqlite3.dll para C:\SisVendas (somente se ainda não estiver lá)
   DllDestino := TPath.Combine(DIR_INSTALACAO, NOME_DLL);
   if not TFile.Exists(DllDestino) then
-    ExtrairDLL(DllDestino);
+  begin
+    DllOrigem := PastaFontesDLL;
+    if not TFile.Exists(DllOrigem) then
+      raise Exception.CreateFmt(
+        'DLL não encontrada em: %s'#13#10 +
+        'Coloque sqlite3.dll ao lado do executável ou na pasta DLL\ do projeto.',
+        [DllOrigem]);
+
+    TFile.Copy(DllOrigem, DllDestino);
+  end;
 end;
 
 class function TConnection.Get: TFDConnection;
@@ -78,6 +96,7 @@ var
 begin
   if not Assigned(FConn) then
   begin
+    // Instalação automática antes de qualquer acesso ao banco
     Instalar;
 
     DbPath := TPath.Combine(DIR_INSTALACAO, NOME_BANCO);

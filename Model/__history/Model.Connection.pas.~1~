@@ -5,7 +5,6 @@ interface
 uses
   System.SysUtils,
   System.IOUtils,
-  System.Classes,
   FireDAC.Comp.Client,
   FireDAC.Stan.Def,
   FireDAC.Stan.Intf,
@@ -22,18 +21,11 @@ uses
   fireDAC.VCLUI.Wait,
   FireDAC.Comp.UI;
 
-const
-  DIR_INSTALACAO = 'C:\SisVendas';
-  NOME_DLL       = 'sqlite3.dll';
-  NOME_BANCO     = 'pedidos.db';
-
 type
   TConnection = class
   private
     class var FConn: TFDConnection;
     class procedure CriarSchema;
-    class procedure Instalar;
-    class procedure ExtrairDLL(const Destino: string);
   public
     class function Get: TFDConnection;
     class procedure Encerrar;
@@ -41,59 +33,26 @@ type
 
 implementation
 
-uses
-  Winapi.Windows;
-
-{$R sqlite3res.res}
-
-class procedure TConnection.ExtrairDLL(const Destino: string);
-var
-  RS: TResourceStream;
-begin
-  RS := TResourceStream.Create(HInstance, 'SQLITE3DLL', RT_RCDATA);
-  try
-    RS.SaveToFile(Destino);
-  finally
-    RS.Free;
-  end;
-end;
-
-class procedure TConnection.Instalar;
-var
-  DllDestino: string;
-begin
-  // 1. Garante que C:\SisVendas existe
-  if not TDirectory.Exists(DIR_INSTALACAO) then
-    TDirectory.CreateDirectory(DIR_INSTALACAO);
-
-  // 2. Extrai sqlite3.dll do recurso embutido no exe (só na primeira vez)
-  DllDestino := TPath.Combine(DIR_INSTALACAO, NOME_DLL);
-  if not TFile.Exists(DllDestino) then
-    ExtrairDLL(DllDestino);
-end;
-
 class function TConnection.Get: TFDConnection;
 var
   DbPath: string;
 begin
   if not Assigned(FConn) then
   begin
-    Instalar;
-
-    DbPath := TPath.Combine(DIR_INSTALACAO, NOME_BANCO);
+    DbPath := TPath.Combine(TPath.GetDirectoryName(ParamStr(0)), 'pedidos.db');
 
     FConn := TFDConnection.Create(nil);
     FConn.DriverName := 'SQLite';
     FConn.Params.Add('DriverID=SQLite');
     FConn.Params.Add('Database=' + DbPath);
     FConn.Params.Add('ForeignKeys=True');
-    FConn.Params.Add('LockingMode=Normal');
+    FConn.Params.Add('lockingMode=Mormal');
     FConn.LoginPrompt := False;
-    FConn.Connected   := True;
+    FConn.Connected := True;
 
+    //Migration
     CriarSchema;
   end;
-
   Result := FConn;
 end;
 

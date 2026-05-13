@@ -103,6 +103,9 @@
         <DelphiCompile Include="$(MainSource)">
             <MainSource>MainSource</MainSource>
         </DelphiCompile>
+        <RcCompile Include="sqlite3res.rc">
+            <Form>sqlite3res.res</Form>
+        </RcCompile>
         <DCCReference Include="View\View.Principal.pas">
             <Form>fPrincipal</Form>
             <FormType>dfm</FormType>
@@ -161,6 +164,12 @@
             </Delphi.Personality>
             <Deployment Version="5">
                 <DeployFile LocalName="..\Bin\SisVendas.exe" Configuration="Debug" Class="ProjectOutput"/>
+                <DeployFile LocalName="C:\SisVendas\SisVendas.exe" Configuration="Debug" Class="ProjectOutput">
+                    <Platform Name="Win32">
+                        <RemoteName>SisVendas.exe</RemoteName>
+                        <Overwrite>true</Overwrite>
+                    </Platform>
+                </DeployFile>
                 <DeployClass Name="AdditionalDebugSymbols">
                     <Platform Name="iOSSimulator">
                         <Operation>1</Operation>

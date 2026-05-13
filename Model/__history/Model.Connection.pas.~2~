@@ -5,7 +5,6 @@ interface
 uses
   System.SysUtils,
   System.IOUtils,
-  System.Classes,
   FireDAC.Comp.Client,
   FireDAC.Stan.Def,
   FireDAC.Stan.Intf,
@@ -33,7 +32,7 @@ type
     class var FConn: TFDConnection;
     class procedure CriarSchema;
     class procedure Instalar;
-    class procedure ExtrairDLL(const Destino: string);
+    class function  PastaFontesDLL: string;
   public
     class function Get: TFDConnection;
     class procedure Encerrar;
@@ -41,35 +40,35 @@ type
 
 implementation
 
-uses
-  Winapi.Windows;
-
-{$R sqlite3res.res}
-
-class procedure TConnection.ExtrairDLL(const Destino: string);
-var
-  RS: TResourceStream;
+class function TConnection.PastaFontesDLL: string;
 begin
-  RS := TResourceStream.Create(HInstance, 'SQLITE3DLL', RT_RCDATA);
-  try
-    RS.SaveToFile(Destino);
-  finally
-    RS.Free;
-  end;
+  Result := TPath.Combine(TPath.Combine(TPath.GetDirectoryName(ParamStr(0)), '..\..\DLL'),NOME_DLL);
+  Result := TPath.GetFullPath(Result);
 end;
 
 class procedure TConnection.Instalar;
 var
+  DllOrigem:  string;
   DllDestino: string;
 begin
   // 1. Garante que C:\SisVendas existe
   if not TDirectory.Exists(DIR_INSTALACAO) then
+  begin
     TDirectory.CreateDirectory(DIR_INSTALACAO);
+  end;
 
-  // 2. Extrai sqlite3.dll do recurso embutido no exe (só na primeira vez)
+  // 2. Copia sqlite3.dll para C:\SisVendas (somente se ainda não estiver lá)
   DllDestino := TPath.Combine(DIR_INSTALACAO, NOME_DLL);
   if not TFile.Exists(DllDestino) then
-    ExtrairDLL(DllDestino);
+  begin
+    DllOrigem := PastaFontesDLL;
+    if not TFile.Exists(DllOrigem) then
+      raise Exception.CreateFmt(
+        'DLL não encontrada em: %s'#13#10 +
+        'Verifique se a pasta DLL está junto aos fontes.', [DllOrigem]);
+
+    TFile.Copy(DllOrigem, DllDestino);
+  end;
 end;
 
 class function TConnection.Get: TFDConnection;
@@ -78,6 +77,7 @@ var
 begin
   if not Assigned(FConn) then
   begin
+    // Instalação automática antes de qualquer acesso ao banco
     Instalar;
 
     DbPath := TPath.Combine(DIR_INSTALACAO, NOME_BANCO);
@@ -87,7 +87,7 @@ begin
     FConn.Params.Add('DriverID=SQLite');
     FConn.Params.Add('Database=' + DbPath);
     FConn.Params.Add('ForeignKeys=True');
-    FConn.Params.Add('LockingMode=Normal');
+    FConn.Params.Add('LockingMode=Normal');   // corrigido: era "Mormal"
     FConn.LoginPrompt := False;
     FConn.Connected   := True;
 

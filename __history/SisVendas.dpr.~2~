@@ -1,7 +1,5 @@
 program SisVendas;
 
-{$R 'sqlite3res.res' 'sqlite3res.rc'}
-
 uses
   Vcl.Forms,
   View.Principal in 'View\View.Principal.pas' {fPrincipal},
